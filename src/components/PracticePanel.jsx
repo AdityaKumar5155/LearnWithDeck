@@ -2,10 +2,18 @@ import Button from "./ui/Button";
 import CardShell from "./ui/CardShell";
 import LatexText from "./LatexText";
 
+const SCORE_LABELS = [
+  { score: 0, label: "Blackout" },
+  { score: 1, label: "Incorrect" },
+  { score: 2, label: "Hard" },
+  { score: 3, label: "Good" },
+  { score: 4, label: "Easy" },
+  { score: 5, label: "Perfect Recall" },
+];
+
 const PracticePanel = ({
   selectedDeck,
   practiceLoading,
-  cards,
   activeCard,
   revealedAnswer,
   scoring,
@@ -34,9 +42,6 @@ const PracticePanel = ({
       ) : (
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="mb-2 text-xs text-white/60">
-              card {cards.findIndex((c) => String(c.id) === String(activeCard.id)) + 1} of {cards.length}
-            </div>
             <div className="text-base font-medium text-white">{activeCard.content}</div>
             {revealedAnswer !== null ? (
               <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
@@ -55,7 +60,7 @@ const PracticePanel = ({
             </Button>
             <div className="h-6 w-px bg-white/10" />
             <div className="text-sm text-white/70">Score recall:</div>
-            {[0, 1, 2, 3, 4, 5].map((s) => (
+            {SCORE_LABELS.map(({ score: s, label }) => (
               <Button
                 key={s}
                 type="button"
@@ -63,7 +68,7 @@ const PracticePanel = ({
                 disabled={scoring}
                 onClick={() => onScore(s)}
               >
-                {s}
+                {label}
               </Button>
             ))}
           </div>

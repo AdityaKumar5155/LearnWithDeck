@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { extractPdfText } from "../lib/pdfText";
 import CollectionsPanel from "../components/CollectionsPanel";
 import NewCollectionPanel from "../components/NewCollectionPanel";
 import DecksPanel from "../components/DecksPanel";
 import PracticePanel from "../components/PracticePanel";
+
+const normalizeSingleCard = (data) => {
+  if (!data) return null;
+  if (Array.isArray(data)) return data[0] ?? null;
+  if (typeof data === "object") return data;
+  return null;
+};
 
 const DashboardPage = ({ token, showError, showInfo }) => {
   const [collections, setCollections] = useState([]);
@@ -22,16 +29,10 @@ const DashboardPage = ({ token, showError, showInfo }) => {
   const [pdfProgress, setPdfProgress] = useState(null);
 
   // Practice
-  const [cards, setCards] = useState([]);
   const [practiceLoading, setPracticeLoading] = useState(false);
-  const [activeCardId, setActiveCardId] = useState(null);
+  const [activeCard, setActiveCard] = useState(null);
   const [revealedAnswer, setRevealedAnswer] = useState(null);
   const [scoring, setScoring] = useState(false);
-
-  const activeCard = useMemo(
-    () => cards.find((c) => String(c.id) === String(activeCardId)) || null,
-    [cards, activeCardId]
-  );
 
   const loadCollections = async () => {
     if (!token) return;
@@ -61,15 +62,14 @@ const DashboardPage = ({ token, showError, showInfo }) => {
     }
   };
 
-  const loadDeckCards = async (deckId) => {
+  const loadNextCard = async (deckId) => {
     if (!token || !deckId) return;
     setPracticeLoading(true);
     setRevealedAnswer(null);
     try {
       const res = await apiFetch(`/decks/${deckId}/cards`, { token });
-      const list = Array.isArray(res?.data) ? res.data : [];
-      setCards(list);
-      setActiveCardId(list[0]?.id ?? null);
+      const next = normalizeSingleCard(res?.data);
+      setActiveCard(next);
     } catch (err) {
       showError(err);
     } finally {
@@ -115,8 +115,7 @@ const DashboardPage = ({ token, showError, showInfo }) => {
         setSelectedCollection(null);
         setDecks([]);
         setSelectedDeck(null);
-        setCards([]);
-        setActiveCardId(null);
+        setActiveCard(null);
         setRevealedAnswer(null);
       }
       showInfo("Collection deleted.");
@@ -127,9 +126,9 @@ const DashboardPage = ({ token, showError, showInfo }) => {
   };
 
   const onReveal = async () => {
-    if (!token || !activeCardId) return;
+    if (!token || !activeCard?.id) return;
     try {
-      const res = await apiFetch(`/cards/${activeCardId}/answer`, { token });
+      const res = await apiFetch(`/cards/${activeCard.id}/answer`, { token });
       setRevealedAnswer(res?.data?.answer ?? null);
     } catch (err) {
       showError(err);
@@ -137,23 +136,17 @@ const DashboardPage = ({ token, showError, showInfo }) => {
   };
 
   const onScore = async (score) => {
-    if (!token || !activeCardId) return;
+    if (!token || !activeCard?.id || !selectedDeck?.id) return;
     setScoring(true);
     try {
-      await apiFetch(`/cards/${activeCardId}/score`, {
+      await apiFetch(`/cards/${activeCard.id}/score`, {
         token,
         method: "POST",
         body: { score },
       });
 
-      const remaining = cards.filter((c) => String(c.id) !== String(activeCardId));
-      setCards(remaining);
       setRevealedAnswer(null);
-      setActiveCardId(remaining[0]?.id ?? null);
-
-      if (remaining.length === 0 && selectedDeck?.id) {
-        await loadDeckCards(selectedDeck.id);
-      }
+      await loadNextCard(selectedDeck.id);
     } catch (err) {
       showError(err);
     } finally {
@@ -179,8 +172,7 @@ const DashboardPage = ({ token, showError, showInfo }) => {
           onSelectCollection={async (c) => {
             setSelectedCollection(c);
             setSelectedDeck(null);
-            setCards([]);
-            setActiveCardId(null);
+            setActiveCard(null);
             setRevealedAnswer(null);
             await loadDecks(c.id);
           }}
@@ -206,20 +198,21 @@ const DashboardPage = ({ token, showError, showInfo }) => {
           selectedDeck={selectedDeck}
           onSelectDeck={async (d) => {
             setSelectedDeck(d);
-            await loadDeckCards(d.id);
+            setActiveCard(null);
+            setRevealedAnswer(null);
+            await loadNextCard(d.id);
           }}
         />
 
         <PracticePanel
           selectedDeck={selectedDeck}
           practiceLoading={practiceLoading}
-          cards={cards}
           activeCard={activeCard}
           revealedAnswer={revealedAnswer}
           scoring={scoring}
           onReveal={onReveal}
           onScore={onScore}
-          onRefresh={() => loadDeckCards(selectedDeck.id)}
+          onRefresh={() => loadNextCard(selectedDeck.id)}
         />
       </div>
     </div>
