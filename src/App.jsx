@@ -45,10 +45,6 @@ const App = () => {
         ) : (
           <DashboardPage token={token} showError={showError} showInfo={showInfo} />
         )}
-
-        <div className="mt-8 text-xs text-white/50">
-          Tip: set `VITE_API_BASE_URL` if your backend isn’t on `http://localhost:5000`.
-        </div>
       </div>
     </div>
   );
